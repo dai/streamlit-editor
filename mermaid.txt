@@ -1,0 +1,33 @@
+```mermaid
+flowchart TD
+    %% Main Components
+    User("fa:fa-user Writer")
+    Editor("fa:fa-edit Streamlit UI")
+    Workspace("fa:fa-database Workspace State")
+    DSPy("fa:fa-brain DSPy Processor")
+    LangChain("fa:fa-link LangChain Splitter")
+    Feedback("fa:fa-comments Feedback System")
+    Summary("fa:fa-file-alt Summary Engine")
+    Export("fa:fa-download Export Module")
+
+    %% Connections
+    User -->|"fa:fa-arrow-right Writes/Edits"| Editor
+    Editor -->|"fa:fa-save Auto-saves to"| Workspace
+    Workspace -->|"fa:fa-share Triggers"| DSPy & LangChain
+    LangChain -->|"fa:fa-cut Splits text via"| Summary
+    DSPy -->|"fa:fa-magic Generates"| Feedback
+    Feedback -->|"fa:fa-undo Updates"| Workspace
+    Summary -->|"fa:fa-copy Stores"| Workspace
+    Workspace -->|"fa:fa-sync Refreshes"| Editor
+    Workspace -->|"fa:fa-file-export Exports via"| Export
+
+    %% Styling with workflow-specific colors
+    style Editor fill:#90EE90,stroke:#333,stroke-width:2px,color:#000000
+    style Workspace fill:#87CEEB,stroke:#333,stroke-width:2px,color:#000000
+    style DSPy fill:#FFB6C1,stroke:#333,stroke-width:2px,color:#000000
+    style LangChain fill:#FFA07A,stroke:#333,stroke-width:2px,color:#000000
+    style Feedback fill:#DDA0DD,stroke:#333,stroke-width:2px,color:#000000
+    style Summary fill:#F0E68C,stroke:#333,stroke-width:2px,color:#000000
+    style Export fill:#98FB98,stroke:#333,stroke-width:2px,color:#000000
+    style User fill:#E6E6FA,stroke:#333,stroke-width:2px,color:#000000
+```

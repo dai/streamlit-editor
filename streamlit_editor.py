@@ -18,12 +18,18 @@ load_dotenv()
 # Dictionary to store available LM configurations
 lm_configs = {}
 
-# Configure GitHub LM if credentials available
-if "GITHUB_TOKEN" in os.environ:
-    lm_configs['github'] = dspy.LM(
+# Configure OpenAI LM if API key available
+if "OPENAI_API_KEY" in os.environ:
+    lm_configs['openai'] = dspy.LM(
         model="openai/gpt-4o-mini",
-            api_base="https://models.inference.ai.azure.com", 
-        api_key=os.environ["GITHUB_TOKEN"]
+        api_key=os.environ["OPENAI_API_KEY"]
+    )
+
+# Configure Deepseek LM if API key available
+if "DEEPSEEK_API_KEY" in os.environ:
+    lm_configs['deepseek'] = dspy.LM(
+        model="deepseek-chat",
+        api_key=os.environ["DEEPSEEK_API_KEY"]
     )
 
 # Configure Gemini LM if API key available
@@ -33,9 +39,17 @@ if "GEMINI_API_KEY" in os.environ:
         api_key=os.environ["GEMINI_API_KEY"]
     )
 
+# Configure GitHub LM if credentials available
+if "GITHUB_TOKEN" in os.environ:
+    lm_configs['github'] = dspy.LM(
+        model="openai/gpt-4o-mini",
+        api_base="https://models.inference.ai.azure.com", 
+        api_key=os.environ["GITHUB_TOKEN"]
+    )
+
 # Select default LM based on availability
 default_lm = None
-for lm_name in ['github', 'gemini']:  # Priority order
+for lm_name in ['openai', 'deepseek', 'gemini', 'github']:  # Priority order
     if lm_name in lm_configs:
         default_lm = lm_configs[lm_name]
         break
