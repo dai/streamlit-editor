@@ -4,7 +4,7 @@
 
 [![Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://doc-editor.streamlit.app)
 
-[![App Screen Recording](https://raw.githubusercontent.com/clchinkc/streamlit-editor/main/screenshot.jpg)](https://raw.githubusercontent.com/clchinkc/streamlit-editor/main/screen_recording.mov)
+[![App Screen Recording](https://github.com/user-attachments/assets/9adbdbc6-2138-4d63-8e0e-83dd8cb03d7f)](https://github.com/user-attachments/assets/f37c4dd5-423c-4406-a08d-51f67942ac7b)
 
 Leverage DSPy's LLM orchestration and LangChain's document processing to create, refine, and manage content with unprecedented efficiency. Ideal for technical writers, content creators, and knowledge workers seeking intelligent document editing.
 
