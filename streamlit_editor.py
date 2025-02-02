@@ -5,18 +5,92 @@ import os
 import pickle
 from streamlit_quill import st_quill
 from dataclasses import dataclass, field
-from typing import Optional, List, Tuple, Dict
+from typing import Optional
 import pyperclip
 import dspy
-import re
+import requests
+from os import getenv
+from dsp import LM
+from ratelimit import limits
 from datetime import datetime
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+
+class OpenRouterClient(LM):
+    RL_CALLS=40
+    RL_PERIOD_SECONDS=60
+    def __init__(self, api_key=None, base_url="https://openrouter.ai/api/v1", model="meta-llama/llama-3-8b-instruct:free", extra_headers=None, **kwargs):
+        self.api_key = api_key or getenv("OPENROUTER_API_KEY")
+        self.base_url = base_url
+        self.model = model
+        self.extra_headers = extra_headers or {}
+        self.history = []
+        self.provider = "openai"
+        self.kwargs = {'temperature': 0.0,
+            'max_tokens': 150,
+            'top_p': 1,
+            'frequency_penalty': 0,
+            'presence_penalty': 0,
+            'n': 1}
+        self.kwargs.update(kwargs)
+
+    def _get_choice_text(choice):
+        return choice["message"]["content"]
+
+    def _get_headers(self):
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        headers.update(self.extra_headers)
+        return headers
+
+    @limits(calls=RL_CALLS, period=RL_PERIOD_SECONDS)
+    def basic_request(self, prompt: str, **kwargs):
+        headers = self._get_headers()
+        data = {
+            "model": self.model,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            **kwargs
+        }
+
+        response = requests.post(f"{self.base_url}/chat/completions", headers=headers, json=data)
+        response_data = response.json()
+        print(response_data)
+
+        self.history.append({
+            "prompt": prompt,
+            "response": response_data,
+            "kwargs": kwargs,
+        })
+
+        return response_data
+
+    def __call__(self, prompt, **kwargs):
+        req_kwargs = self.kwargs
+
+        if not kwargs:
+            req_kwargs.update(kwargs)
+
+        response_data = self.basic_request(prompt, **req_kwargs)
+        completions = [choice["message"]["content"] for choice in response_data.get("choices", [])]
+        return completions
 
 # Initialize dspy client
 load_dotenv()
 
 # Dictionary to store available LM configurations
 lm_configs = {}
+
+# Configure OpenRouter LM if API key available
+if "OPENROUTER_API_KEY" in os.environ:
+    lm_configs['openrouter'] = OpenRouterClient(
+        model=os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free"),
+        api_key=os.environ["OPENROUTER_API_KEY"],
+        api_base="https://openrouter.ai/api/v1"
+    )
 
 # Configure OpenAI LM if API key available
 if "OPENAI_API_KEY" in os.environ:
@@ -47,9 +121,17 @@ if "GITHUB_TOKEN" in os.environ:
         api_key=os.environ["GITHUB_TOKEN"]
     )
 
+# Configure Ollama LM if model is specified
+if "OLLAMA_MODEL" in os.environ:
+    lm_configs['ollama'] = dspy.LM(
+        model=f"ollama_chat/{os.environ['OLLAMA_MODEL']}",
+        api_base="http://localhost:11434",
+        api_key=""
+    )
+
 # Select default LM based on availability
 default_lm = None
-for lm_name in ['openai', 'deepseek', 'gemini', 'github']:  # Priority order
+for lm_name in ['openrouter', 'openai', 'deepseek', 'gemini', 'github', 'ollama']:  # Updated priority order
     if lm_name in lm_configs:
         default_lm = lm_configs[lm_name]
         break
@@ -90,8 +172,8 @@ class WorkspaceStats:
 class Workspace:
     doc_content: Optional[str] = None
     ai_modified_text: Optional[str] = None
-    feedback_items: List[FeedbackItem] = field(default_factory=list)
-    document_summaries: List[SummaryItem] = field(default_factory=list)
+    feedback_items: list[FeedbackItem] = field(default_factory=list)
+    document_summaries: list[SummaryItem] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.now)
     last_modified: datetime = field(default_factory=datetime.now)
     name: Optional[str] = None
@@ -176,7 +258,7 @@ def generate_content_revision(text: str, context: Optional[str] = None, guidelin
         print(f"Error in content revision: {str(e)}")
         return text  # Return original text on error
 
-def generate_feedback_revision(text: str, feedback_list: List[str]) -> str:
+def generate_feedback_revision(text: str, feedback_list: list[str]) -> str:
     """Generate revised content based on feedback items"""
     try:
         # Ensure LM is loaded
@@ -203,18 +285,26 @@ def get_feedback_item(reference_text: Optional[str] = None) -> FeedbackItem:
         if not dspy.settings.lm:
             dspy.settings.configure(lm=default_lm)  # Use the configured default LM
         
+        # Get current workspace
+        current_workspace = get_current_workspace()
+        if not current_workspace or not current_workspace.doc_content:
+            return FeedbackItem(
+                content="Unable to generate feedback: No document content available.",
+                reference_text=reference_text
+            )
+        
         # Create the generator with the current LM
         generator = dspy.Predict(FeedbackGenerator)
         
         # Generate appropriate prompt based on whether reference text is provided
         if reference_text:
             result = generator(
-                text=f"Generate feedback for the following text: {reference_text}",
+                text=f"Generate a modification suggestion specifically for the following text within the full document context:\n\nFull Document:\n{current_workspace.doc_content}\n\nSelected Text:\n{reference_text}\n\nMake sure to only provide one concise modification suggestion, no original text.",
                 reference_text=reference_text
             )
         else:
             result = generator(
-                text="Generate general document feedback",
+                text=f"Generate a general document modification suggestion for the following text:\n\n{current_workspace.doc_content}\n\nMake sure to only provide one concise modification suggestion, no original text.",
                 reference_text=""
             )
         
@@ -230,7 +320,7 @@ def get_feedback_item(reference_text: Optional[str] = None) -> FeedbackItem:
             reference_text=reference_text
         )
 
-def generate_document_summary(text: str) -> List[SummaryItem]:
+def generate_document_summary(text: str) -> list[SummaryItem]:
     """Generate document summaries using LLM"""
     try:
         # Split text into sections (simplified version)
@@ -273,7 +363,7 @@ def regenerate_summary(text: str) -> str:
         print(f"Error regenerating summary: {str(e)}")
         return f"Error generating summary: {str(e)}"
 
-def split_into_sections(text: str, min_section_length: int = 500) -> List[str]:
+def split_into_sections(text: str, min_section_length: int = 500) -> list[str]:
     """Split text into logical sections using Langchain's RecursiveCharacterTextSplitter"""
     # Initialize the recursive splitter
     splitter = RecursiveCharacterTextSplitter(
@@ -440,7 +530,7 @@ def load_state_from_disk():
         st.session_state.workspaces = {}
         st.session_state.current_workspace_id = None
 
-def regenerate_document_from_summaries(summaries: List[SummaryItem]) -> str:
+def regenerate_document_from_summaries(summaries: list[SummaryItem]) -> str:
     """Reconstruct document from summaries"""
     return '\n\n'.join(item.original_text for item in summaries)
 
@@ -627,6 +717,13 @@ if "feedback_items" in st.session_state:
 if "document_summaries" in st.session_state:
     del st.session_state.document_summaries
 
+# Initialize state
+if "initialized" not in st.session_state:
+    load_state_from_disk()
+    st.session_state.initialized = True
+    if 'quill_editor_key' not in st.session_state:
+        st.session_state.quill_editor_key = 0
+
 # Keep only workspace-related state
 if "workspaces" not in st.session_state:
     st.session_state.workspaces = {}
@@ -638,13 +735,22 @@ if "show_ai_assistant" not in st.session_state:
     st.session_state.show_ai_assistant = True
 if "read_mode" not in st.session_state:
     st.session_state.read_mode = False
+# Initialize current_summary_page
+if "current_summary_page" not in st.session_state:
+    st.session_state.current_summary_page = 0
 
 # --- Sidebar ---
 with st.sidebar:
+    # Add AI Assistant toggle at the top
+    st.session_state.show_ai_assistant = st.toggle(
+        "🤖 Show AI Assistant",
+        value=st.session_state.show_ai_assistant
+    )
+    
     st.title("Workspace Manager")
     
     # Workspace Controls (no expander)
-    if st.button("➕ Create New Workspace", use_container_width=True):
+    if st.button("➕ Create Workspace", use_container_width=True):
         new_id = create_new_workspace()
         st.success(f"Created new workspace: {st.session_state.workspaces[new_id].name}")
         st.rerun()
@@ -658,7 +764,7 @@ with st.sidebar:
         # Display current workspace name with edit button
         if st.session_state.current_workspace_id:
             current_ws = st.session_state.workspaces[st.session_state.current_workspace_id]
-            col1, col2 = st.columns([0.8, 0.2])
+            col1, col2 = st.columns([0.7, 0.3])
             with col1:
                 new_name = st.text_input(
                     "Workspace Name",
@@ -690,7 +796,7 @@ with st.sidebar:
     
     # Delete button
     if st.session_state.current_workspace_id:
-        if st.button("🗑️ Delete Current Workspace", use_container_width=True):
+        if st.button("🗑️ Delete Workspace", use_container_width=True):
             delete_workspace(st.session_state.current_workspace_id)
             st.rerun()
     
@@ -700,26 +806,51 @@ with st.sidebar:
     current_workspace = get_current_workspace()
     if current_workspace:
         uploaded_file = st.file_uploader("Upload a Document", type=["md", "txt"])
-        if uploaded_file:
-            try:
-                content = load_document(uploaded_file)
-                current_workspace.doc_content = content
-                current_workspace.ai_modified_text = None
-                current_workspace.document_summaries = []
-                update_workspace_stats(current_workspace)
-                save_state_to_disk()
-            except Exception as e:
-                st.error(f"Error processing document: {str(e)}")
-                current_workspace.doc_content = ""
+        
+        # Track file upload state
+        if "last_uploaded_file" not in st.session_state:
+            st.session_state.last_uploaded_file = None
+        
+        # Handle both upload and removal cases
+        if uploaded_file is not None:
+            # New file uploaded
+            if st.session_state.last_uploaded_file != uploaded_file.name:
+                try:
+                    content = load_document(uploaded_file)
+                    current_workspace.doc_content = content
+                    current_workspace.ai_modified_text = None
+                    current_workspace.document_summaries = []
+                    update_workspace_stats(current_workspace)
+                    
+                    # Force Quill editor to update
+                    st.session_state.quill_editor_key = st.session_state.get('quill_editor_key', 0) + 1
+                    st.session_state.last_uploaded_file = uploaded_file.name
+                    save_state_to_disk()
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"Error processing document: {str(e)}")
+                    current_workspace.doc_content = ""
+        else:
+            # File was removed
+            if st.session_state.last_uploaded_file is not None:
+                st.session_state.last_uploaded_file = None
+                st.session_state.quill_editor_key = st.session_state.get('quill_editor_key', 0) + 1
+                st.rerun()
 
-        # Create Empty Document button
-        if st.button("Create Empty Document", use_container_width=True):
-            current_workspace.doc_content = ""
-            current_workspace.ai_modified_text = None
-            current_workspace.document_summaries = []
-            update_workspace_stats(current_workspace)
-            save_state_to_disk()
-            st.rerun()
+        # Add separator
+        st.markdown("<hr class='custom-separator'>", unsafe_allow_html=True)
+
+        # Download Document button
+        if current_workspace.doc_content:
+            doc_name = current_workspace.name.replace(" ", "_").lower() if current_workspace.name else "document"
+            st.download_button(
+                "⬇️ Download Document",
+                data=current_workspace.doc_content,
+                file_name=f"{doc_name}.md",
+                mime="text/markdown",
+                use_container_width=True
+            )
 
 # Update the styles
 st.markdown("""
@@ -736,7 +867,7 @@ st.markdown("""
     
     /* Reduce Sidebar width */
     [data-testid="stSidebar"] {
-        width: 250px !important;
+        width: 200px !important;
     }
     
     /* Expander styles */
@@ -761,6 +892,7 @@ st.markdown("""
     
     .stMainContainer {
         padding: 0rem !important;
+        margin: 0rem !important;
     }
 
     .main .block-container {
@@ -791,9 +923,27 @@ st.markdown("""
     
     /* Custom separator with reduced spacing */
     .custom-separator {
-        margin: 0.5rem 0;
+        margin: 0.2rem 0 !important;
         border: none;
         border-top: 1px solid rgba(49, 51, 63, 0.2);
+    }
+    
+    /* Custom button styles for pagination */
+    button[kind="secondary"] {
+        color: #31333F !important;
+        border-color: #31333F !important;
+    }
+    
+    button[kind="secondary"]:disabled {
+        opacity: 0.5 !important;
+        color: #666666 !important;
+        border-color: #666666 !important;
+    }
+    
+    button[kind="secondary"]:not(:disabled):hover {
+        color: #FFFFFF !important;
+        border-color: #31333F !important;
+        background-color: #31333F !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -861,20 +1011,7 @@ else:
             
             with summary_tab:
                 if current_workspace.doc_content:
-                    # Check if document content has changed since last summary generation
-                    doc_content_changed = (
-                        "last_summary_content" not in st.session_state or 
-                        st.session_state.last_summary_content != current_workspace.doc_content
-                    )
-                    
-                    # Generate new summaries if content has changed
-                    if doc_content_changed:
-                        current_workspace.document_summaries = generate_document_summary(current_workspace.doc_content)
-                        st.session_state.last_summary_content = current_workspace.doc_content
-                        update_workspace_stats(current_workspace)
-                        save_state_to_disk()
-                    
-                    # Only keep the Regenerate All button
+                    # Keep only the manual regenerate button
                     if st.button("🔄 Regenerate All Summaries", type="primary", use_container_width=True):
                         current_workspace.document_summaries = generate_document_summary(current_workspace.doc_content)
                         st.session_state.last_summary_content = current_workspace.doc_content
@@ -884,95 +1021,129 @@ else:
                     
                     st.markdown("<hr class='custom-separator'>", unsafe_allow_html=True)
                     
-                    # Create tabs dynamically based on number of summaries
-                    section_tabs = st.tabs([item.title for item in current_workspace.document_summaries])
-                    
-                    for idx, (tab, summary_item) in enumerate(zip(section_tabs, current_workspace.document_summaries)):
-                        with tab:
-                            # Summary section
-                            st.subheader("Section Summary")
-                            summary_col, button_col = st.columns([0.85, 0.15])
-                            with summary_col:
-                                edited_summary = st.text_area(
-                                    "Summary",
-                                    value=summary_item.summary,
-                                    key=f"summary_{idx}",
-                                    height=100,
-                                    label_visibility="collapsed"
+                    # If no summaries exist yet, show a message
+                    if not current_workspace.document_summaries:
+                        st.info("Click 'Regenerate All Summaries' to generate section summaries.")
+                    else:
+                        # Only show pagination and tabs if we have summaries
+                        # Pagination controls
+                        items_per_page = 3
+                        total_summaries = len(current_workspace.document_summaries)
+                        total_pages = (total_summaries + items_per_page - 1) // items_per_page
+                        current_page = st.session_state.get("current_summary_page", 0)
+
+                        # Pagination UI
+                        if total_pages > 1:
+                            col_prev, col_page, col_next = st.columns([0.3, 0.4, 0.3])
+                            with col_prev:
+                                if st.button("⬅️ Previous", 
+                                            disabled=(current_page <= 0), 
+                                            key="prev_page",
+                                            type="secondary"):
+                                    st.session_state.current_summary_page -= 1
+                                    st.rerun()
+                            with col_page:
+                                st.markdown(
+                                    f"<div style='text-align: center;'>Page {current_page + 1} of {total_pages}</div>", 
+                                    unsafe_allow_html=True
                                 )
-                                # Auto-save summary changes
-                                if edited_summary != summary_item.summary:
-                                    summary_item.summary = edited_summary
-                                    update_workspace_stats(current_workspace)
-                                    save_state_to_disk()
-                            
-                            with button_col:
-                                if st.button("🔄", key=f"regen_{idx}", help="Regenerate summary"):
-                                    new_summary = regenerate_summary(summary_item.original_text)
-                                    current_workspace.document_summaries[idx].summary = new_summary
-                                    update_workspace_stats(current_workspace)
-                                    save_state_to_disk()
+                            with col_next:
+                                if st.button("➡️ Next", 
+                                            disabled=(current_page >= total_pages - 1), 
+                                            key="next_page",
+                                            type="secondary"):
+                                    st.session_state.current_summary_page += 1
                                     st.rerun()
-                            
-                            # Add update section button
-                            if st.button("📝 Update Section from Summary", key=f"update_section_{idx}"):
-                                try:
-                                    # Generate new section text based on summary
-                                    new_section_text = generate_content_revision(
-                                        summary_item.original_text,
-                                        context=summary_item.summary,
-                                        guidelines="Revise the text to better match the summary while maintaining the original content's essence."
-                                    )
-                                    
-                                    # Update the section's original text
-                                    current_workspace.document_summaries[idx].original_text = new_section_text
-                                    
-                                    # Immediately update the document content
-                                    new_doc_content = regenerate_document_from_summaries(current_workspace.document_summaries)
-                                    current_workspace.doc_content = new_doc_content
-                                    
-                                    # Force Quill editor to update
-                                    if 'quill_editor_key' not in st.session_state:
-                                        st.session_state.quill_editor_key = 0
-                                    st.session_state.quill_editor_key += 1
-                                    
-                                    update_workspace_stats(current_workspace)
-                                    save_state_to_disk()
-                                    st.success("✅ Section updated! Document content has been updated.")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Error updating section: {str(e)}")
-                            
-                            # Display original text (non-editable)
-                            st.markdown("**Original Text:**")
-                            paragraphs = summary_item.original_text.split('\n')
-                            for paragraph in paragraphs:
-                                if paragraph.strip():  # Only display non-empty paragraphs
-                                    st.markdown(paragraph)
-                            
-                            # Section management buttons
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                if st.button("➕ Add Section Below", key=f"add_below_{idx}"):
-                                    new_section = SummaryItem(
-                                        title=f"New Section {len(current_workspace.document_summaries) + 1}",
-                                        summary="New section summary...",
-                                        original_text="New section content...",
-                                        start_index=summary_item.end_index,
-                                        end_index=summary_item.end_index + 1
-                                    )
-                                    current_workspace.document_summaries.insert(idx + 1, new_section)
-                                    update_workspace_stats(current_workspace)
-                                    save_state_to_disk()
-                                    st.rerun()
-                            
-                            with col2:
-                                if len(current_workspace.document_summaries) > 1:
-                                    if st.button("🗑️ Delete Section", key=f"delete_{idx}"):
-                                        current_workspace.document_summaries.pop(idx)
+
+                        # Get current page summaries
+                        start_idx = current_page * items_per_page
+                        end_idx = start_idx + items_per_page
+                        current_summaries = current_workspace.document_summaries[start_idx:end_idx]
+
+                        # Create tabs for current page summaries
+                        section_tabs = st.tabs([item.title for item in current_summaries])
+
+                        # Update all index references to use global_idx
+                        for idx_in_page, (tab, summary_item) in enumerate(zip(section_tabs, current_summaries)):
+                            global_idx = start_idx + idx_in_page
+                            with tab:
+                                # Section management buttons
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    if st.button("➕ Add Section Below", key=f"add_below_{global_idx}"):
+                                        new_section = SummaryItem(
+                                            title=f"New Section {len(current_workspace.document_summaries) + 1}",
+                                            summary="New section summary...",
+                                            original_text="New section content...",
+                                            start_index=summary_item.end_index,
+                                            end_index=summary_item.end_index + 1
+                                        )
+                                        current_workspace.document_summaries.insert(global_idx + 1, new_section)
                                         update_workspace_stats(current_workspace)
                                         save_state_to_disk()
                                         st.rerun()
+                                
+                                with col2:
+                                    if len(current_workspace.document_summaries) > 1:
+                                        if st.button("🗑️ Delete Section", key=f"delete_{global_idx}"):
+                                            current_workspace.document_summaries.pop(global_idx)
+                                            update_workspace_stats(current_workspace)
+                                            save_state_to_disk()
+                                            st.rerun()
+
+                                # Summary section
+                                summary_col, button_col = st.columns([0.85, 0.15])
+                                with summary_col:
+                                    edited_summary = st_quill(
+                                        value=summary_item.summary,
+                                        key=f"summary_quill_{global_idx}",
+                                    )
+                                    # Auto-save summary changes
+                                    if edited_summary != summary_item.summary:
+                                        summary_item.summary = edited_summary
+                                        update_workspace_stats(current_workspace)
+                                        save_state_to_disk()
+                                
+                                with button_col:
+                                    if st.button(
+                                        "🔄 Regenerate Summary",
+                                        key=f"regenerate_summary_{global_idx}",
+                                        help="Regenerate this summary from original section text",
+                                        use_container_width=True
+                                    ):
+                                        new_summary = regenerate_summary(summary_item.original_text)
+                                        current_workspace.document_summaries[global_idx].summary = new_summary
+                                        update_workspace_stats(current_workspace)
+                                        save_state_to_disk()
+                                        st.rerun()
+                                
+                                # Update section button
+                                if st.button("📝 Update Section Text from Summary", key=f"update_section_{global_idx}"):
+                                    try:
+                                        new_section_text = generate_content_revision(
+                                            summary_item.original_text,
+                                            context=summary_item.summary,
+                                            guidelines="Revise the text to better match the summary while maintaining the original content's essence."
+                                        )
+                                        current_workspace.document_summaries[global_idx].original_text = new_section_text
+                                        new_doc_content = regenerate_document_from_summaries(current_workspace.document_summaries)
+                                        current_workspace.doc_content = new_doc_content
+                                        if 'quill_editor_key' not in st.session_state:
+                                            st.session_state.quill_editor_key = 0
+                                        st.session_state.quill_editor_key += 1
+                                        update_workspace_stats(current_workspace)
+                                        save_state_to_disk()
+                                        st.success("✅ Section updated! Document content has been updated.")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Error updating section: {str(e)}")
+                                
+                                # Original text display
+                                st.markdown("**Original Text:**")
+                                paragraphs = summary_item.original_text.split('\n')
+                                for paragraph in paragraphs:
+                                    if paragraph.strip():
+                                        st.markdown(paragraph)
 
         # AI Assistant Column (only shown if toggled on)
         if st.session_state.show_ai_assistant:

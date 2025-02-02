@@ -1,4 +1,4 @@
-# LLM-Powered Document Editor: DSPy & LangChain Integration for Intelligent Writing (OpenAI/Deepseek/Gemini/Github)
+# LLM-Powered Document Editor: DSPy & LangChain Integration for Intelligent Writing (OpenRouter/OpenAI/Deepseek/Gemini/Github/Ollama)
 
 **An intelligent writing assistant with multi-LLM integration for enhanced content creation and editing.**
 
@@ -9,7 +9,7 @@
 Leverage DSPy's LLM orchestration and LangChain's document processing to create, refine, and manage content with unprecedented efficiency. Ideal for technical writers, content creators, and knowledge workers seeking intelligent document editing.
 
 ## 📚 Table of Contents
-- [LLM-Powered Document Editor: DSPy \& LangChain Integration for Intelligent Writing (OpenAI/Deepseek/Gemini/Github)](#llm-powered-document-editor-dspy--langchain-integration-for-intelligent-writing-openaideepseekgeminigithub)
+- [LLM-Powered Document Editor: DSPy \& LangChain Integration for Intelligent Writing (OpenRouter/OpenAI/Deepseek/Gemini/Github/Ollama)](#llm-powered-document-editor-dspy--langchain-integration-for-intelligent-writing-openrouteropenaideepseekgeminigithubollama)
   - [📚 Table of Contents](#-table-of-contents)
   - [🚀 Quick Start](#-quick-start)
   - [✨ Intelligent Document Workflows](#-intelligent-document-workflows)
@@ -45,13 +45,25 @@ cp .env.example .env  # Implement environment template
 
 4. Add your API key (either one required):
 ```
+OPENROUTER_API_KEY=your_openrouter_api_key
+OPENROUTER_MODEL=your_openrouter_model
 OPENAI_API_KEY=your_openai_api_key
 DEEPSEEK_API_KEY=your_deepseek_api_key
 GEMINI_API_KEY=your_gemini_api_key
 GITHUB_TOKEN=your_github_token
+OLLAMA_MODEL=your_ollama_model
 ```
 
-5. Launch application:
+5. (If you want to use Ollama) Setup Ollama:
+
+First, install [Ollama](https://ollama.com/download).
+
+Then start Ollama server with the specified model:
+```
+ollama run your_ollama_model
+```
+
+6. Launch application:
 ```
 streamlit run streamlit_editor.py
 ```
@@ -84,12 +96,12 @@ And the app will be running on http://localhost:8501.
 ### 3. Finalization & Management
 - **Output Optimization**
   - 🧮 Batch operation processing for bulk edits
-  - 📖 Focus-optimized read mode
 
 - **Advanced Orchestration**
   - 🚦 DSPy-managed suggestion pipeline
   - 📜 Version history tracking
   - 🌐 Multi-modal previews (raw + rendered views)
+  - 📄 Pagination for summaries
 
 ## ⚙️ System Architecture
 
