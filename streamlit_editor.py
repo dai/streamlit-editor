@@ -14,6 +14,7 @@ from dsp import LM
 from ratelimit import limits
 from datetime import datetime
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+import streamlit_analytics2 as streamlit_analytics
 
 
 class OpenRouterClient(LM):
@@ -397,6 +398,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed" if st.session_state.get('read_mode', False) else "expanded"
 )
 
+streamlit_analytics.start_tracking(load_from_json=".streamlit/analytics.json")
+
 # --- Helper Functions ---
 def load_document(file):
     """Load markdown document with empty document handling"""
@@ -741,7 +744,7 @@ if "current_summary_page" not in st.session_state:
 
 # --- Sidebar ---
 with st.sidebar:
-    # Add AI Assistant toggle at the top
+    # AI Assistant toggle
     st.session_state.show_ai_assistant = st.toggle(
         "🤖 Show AI Assistant",
         value=st.session_state.show_ai_assistant
@@ -749,8 +752,10 @@ with st.sidebar:
     
     st.title("Workspace Manager")
     
-    # Workspace Controls (no expander)
-    if st.button("➕ Create Workspace", use_container_width=True):
+    # Workspace Controls
+    if st.button("➕ Create Workspace", 
+                use_container_width=True,
+                key="create_workspace_btn"):
         new_id = create_new_workspace()
         st.success(f"Created new workspace: {st.session_state.workspaces[new_id].name}")
         st.rerun()
@@ -802,7 +807,7 @@ with st.sidebar:
     
     st.markdown("<hr class='custom-separator'>", unsafe_allow_html=True)
     
-    # Document Management Section (now workspace-specific)
+    # Document Management Section (workspace-specific)
     current_workspace = get_current_workspace()
     if current_workspace:
         uploaded_file = st.file_uploader("Upload a Document", type=["md", "txt"])
@@ -851,19 +856,18 @@ with st.sidebar:
                 mime="text/markdown",
                 use_container_width=True
             )
+            
+        # Add separator
+        st.markdown("<hr class='custom-separator'>", unsafe_allow_html=True)
+            
+        if st.button("📊 Open Analytics Dashboard", 
+            help="Access detailed usage analytics",
+            use_container_width=True):
+            st.query_params["analytics"] = "on"
 
 # Update the styles
 st.markdown("""
     <style>
-    /* Make all buttons take full width */
-    .stButton button, .stDownloadButton button, .row-widget.stButton {
-        width: 100% !important;
-    }
-    
-    /* Target buttons inside tabs */
-    [data-testid="stTabsContent"] .stButton button {
-        width: 100% !important;
-    }
     
     /* Reduce Sidebar width */
     [data-testid="stSidebar"] {
@@ -877,12 +881,6 @@ st.markdown("""
     .streamlit-expanderContent {
         padding-left: 0px !important;
         padding-right: 0px !important;
-    }
-    
-    /* Force all buttons to full width */
-    div[data-testid="stHorizontalBlock"] button,
-    div[data-testid="stVerticalBlock"] button {
-        width: 100% !important;
     }
     
     /* Quill editor container */
@@ -927,28 +925,12 @@ st.markdown("""
         border: none;
         border-top: 1px solid rgba(49, 51, 63, 0.2);
     }
-    
-    /* Custom button styles for pagination */
-    button[kind="secondary"] {
-        color: #31333F !important;
-        border-color: #31333F !important;
-    }
-    
-    button[kind="secondary"]:disabled {
-        opacity: 0.5 !important;
-        color: #666666 !important;
-        border-color: #666666 !important;
-    }
-    
-    button[kind="secondary"]:not(:disabled):hover {
-        color: #FFFFFF !important;
-        border-color: #31333F !important;
-        background-color: #31333F !important;
-    }
+
     </style>
     """, unsafe_allow_html=True)
 
 # --- Main App ---
+
 current_workspace = get_current_workspace()
 
 if current_workspace is None:
@@ -959,7 +941,7 @@ else:
         # Exit read mode button
         st.write("<br>", unsafe_allow_html=True)
         st.write("<br>", unsafe_allow_html=True)
-        if st.button("✕ Exit Read Mode", key="exit_read_mode", type="secondary"):
+        if st.button("✕ Exit Read Mode", key="exit_read_mode", type="secondary", use_container_width=True):
             st.session_state.read_mode = False
             st.rerun()
         
@@ -1039,7 +1021,8 @@ else:
                                 if st.button("⬅️ Previous", 
                                             disabled=(current_page <= 0), 
                                             key="prev_page",
-                                            type="secondary"):
+                                            type="secondary",
+                                            use_container_width=True):
                                     st.session_state.current_summary_page -= 1
                                     st.rerun()
                             with col_page:
@@ -1051,7 +1034,8 @@ else:
                                 if st.button("➡️ Next", 
                                             disabled=(current_page >= total_pages - 1), 
                                             key="next_page",
-                                            type="secondary"):
+                                            type="secondary",
+                                            use_container_width=True):
                                     st.session_state.current_summary_page += 1
                                     st.rerun()
 
@@ -1070,7 +1054,7 @@ else:
                                 # Section management buttons
                                 col1, col2 = st.columns(2)
                                 with col1:
-                                    if st.button("➕ Add Section Below", key=f"add_below_{global_idx}"):
+                                    if st.button("➕ Add Section Below", key=f"add_below_{global_idx}", use_container_width=True):
                                         new_section = SummaryItem(
                                             title=f"New Section {len(current_workspace.document_summaries) + 1}",
                                             summary="New section summary...",
@@ -1085,7 +1069,7 @@ else:
                                 
                                 with col2:
                                     if len(current_workspace.document_summaries) > 1:
-                                        if st.button("🗑️ Delete Section", key=f"delete_{global_idx}"):
+                                        if st.button("🗑️ Delete Section", key=f"delete_{global_idx}", use_container_width=True):
                                             current_workspace.document_summaries.pop(global_idx)
                                             update_workspace_stats(current_workspace)
                                             save_state_to_disk()
@@ -1118,7 +1102,7 @@ else:
                                         st.rerun()
                                 
                                 # Update section button
-                                if st.button("📝 Update Section Text from Summary", key=f"update_section_{global_idx}"):
+                                if st.button("📝 Update Section Text from Summary", key=f"update_section_{global_idx}", use_container_width=True):
                                     try:
                                         new_section_text = generate_content_revision(
                                             summary_item.original_text,
@@ -1172,3 +1156,5 @@ def display_workspace_stats(workspace: Workspace):
 # Add the display call in the main app
 if current_workspace:
     display_workspace_stats(current_workspace)
+
+streamlit_analytics.stop_tracking(unsafe_password=os.environ.get("ANALYTICS_PASSWORD"), save_to_json=".streamlit/analytics.json")
