@@ -395,7 +395,11 @@ if 'read_mode' not in st.session_state:
 st.set_page_config(
     page_title="Document Management with Generative AI",
     layout="wide",
-    initial_sidebar_state="collapsed" if st.session_state.get('read_mode', False) else "expanded"
+    initial_sidebar_state="collapsed" if st.session_state.get('read_mode', False) else "expanded",
+    menu_items={
+        'Get Help': 'https://x.com/StockchatEditor',
+        'Report a bug': "https://x.com/StockchatEditor",
+    }
 )
 
 streamlit_analytics.start_tracking(load_from_json=".streamlit/analytics.json")
