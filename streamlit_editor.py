@@ -5,7 +5,6 @@ import pickle
 from streamlit_quill import st_quill
 from dataclasses import dataclass, field
 from typing import Optional
-import pyperclip
 import dspy
 import requests
 from os import getenv
@@ -15,7 +14,9 @@ from datetime import datetime
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import streamlit_analytics2 as streamlit_analytics
 import streamlit_mermaid as stmd
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class OpenRouterClient(LM):
     RL_CALLS=40
@@ -297,12 +298,12 @@ def get_feedback_item(reference_text: Optional[str] = None) -> FeedbackItem:
         # Generate appropriate prompt based on whether reference text is provided
         if reference_text:
             result = generator(
-                text=f"Generate a modification suggestion specifically for the following text within the full document context:\n\nFull Document:\n{current_workspace.doc_content}\n\nSelected Text:\n{reference_text}\n\nMake sure to only provide one concise modification suggestion, no original text.",
+                text=f"Generate a modification suggestion specifically for the following text within the full document context:\n\nFull Document:\n{current_workspace.doc_content}\n\nSelected Text:\n{reference_text}\n\nMake sure to only provide one concise modification suggestion without actual text, no original text.",
                 reference_text=reference_text
             )
         else:
             result = generator(
-                text=f"Generate a general document modification suggestion for the following text:\n\n{current_workspace.doc_content}\n\nMake sure to only provide one concise modification suggestion, no original text.",
+                text=f"Generate a general document modification suggestion for the following text:\n\n{current_workspace.doc_content}\n\nMake sure to only provide one concise modification suggestion without actual text, no original text.",
                 reference_text=""
             )
         
@@ -314,7 +315,7 @@ def get_feedback_item(reference_text: Optional[str] = None) -> FeedbackItem:
     except Exception as e:
         print(f"Error generating feedback: {str(e)}")
         return FeedbackItem(
-            content="Unable to generate feedback at this time.",
+            content=f"Unable to generate feedback at this time. Error generating feedback: {str(e)}",
             reference_text=reference_text
         )
 
@@ -623,17 +624,19 @@ def ai_assistant_column():
                 st.error(f"Error applying feedback: {str(e)}")
 
     with tab2:
-        # Clipboard paste functionality
-        if st.button(
-            "📋 Paste Text from Clipboard",
-            key="paste_clipboard",
-            use_container_width=True
-        ):
-            selected_text = pyperclip.paste()
-            if selected_text and current_workspace.doc_content and selected_text.strip() in current_workspace.doc_content:
+        # Replace clipboard paste with text input
+        selected_text = st.text_area(
+            "📋 Paste Text Here",
+            key="text_input_for_feedback",
+            help="Paste the text you want feedback on",
+            placeholder="Paste your text here..."
+        )
+        
+        if selected_text:
+            if current_workspace.doc_content and selected_text.strip() in current_workspace.doc_content:
                 st.session_state.referenced_text = selected_text.strip()
             else:
-                st.error("⚠️ Clipboard text was not found in the document.")
+                st.error("⚠️ Entered text was not found in the document.")
         
         # Show referenced text if it exists
         if hasattr(st.session_state, 'referenced_text') and st.session_state.referenced_text:
@@ -1236,6 +1239,6 @@ if current_workspace:
     display_workspace_stats(current_workspace)
 
 streamlit_analytics.stop_tracking(
-    unsafe_password=st.secrets.get("analytics_password", ""),  # Get from secrets or empty string as fallback
+    unsafe_password=os.environ.get("ANALYTICS_PASSWORD"),
     save_to_json=".streamlit/analytics.json"
 )
