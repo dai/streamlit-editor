@@ -1,4 +1,3 @@
-from dotenv import load_dotenv
 import streamlit as st
 from io import BytesIO
 import os
@@ -15,6 +14,7 @@ from ratelimit import limits
 from datetime import datetime
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import streamlit_analytics2 as streamlit_analytics
+import streamlit_mermaid as stmd
 
 
 class OpenRouterClient(LM):
@@ -79,55 +79,52 @@ class OpenRouterClient(LM):
         completions = [choice["message"]["content"] for choice in response_data.get("choices", [])]
         return completions
 
-# Initialize dspy client
-load_dotenv()
-
 # Dictionary to store available LM configurations
 lm_configs = {}
 
-# Configure OpenRouter LM if API key available
-if "OPENROUTER_API_KEY" in os.environ:
+# Configure OpenRouter LM if API key available in secrets
+if "openrouter" in st.secrets:
     lm_configs['openrouter'] = OpenRouterClient(
-        model=os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free"),
-        api_key=os.environ["OPENROUTER_API_KEY"],
-        api_base="https://openrouter.ai/api/v1"
+        model=st.secrets.openrouter.get("model", "meta-llama/llama-3.3-70b-instruct:free"),
+        api_key=st.secrets.openrouter.api_key,
+        api_base=st.secrets.openrouter.get("api_base", "https://openrouter.ai/api/v1")
     )
 
-# Configure OpenAI LM if API key available
-if "OPENAI_API_KEY" in os.environ:
+# Configure OpenAI LM if API key available in secrets
+if "openai" in st.secrets:
     lm_configs['openai'] = dspy.LM(
-        model="openai/gpt-4o-mini",
-        api_key=os.environ["OPENAI_API_KEY"]
+        model=st.secrets.openai.get("model", "openai/gpt-4o-mini"),
+        api_key=st.secrets.openai.api_key
     )
 
-# Configure Deepseek LM if API key available
-if "DEEPSEEK_API_KEY" in os.environ:
+# Configure Deepseek LM if API key available in secrets
+if "deepseek" in st.secrets:
     lm_configs['deepseek'] = dspy.LM(
-        model="deepseek-chat",
-        api_key=os.environ["DEEPSEEK_API_KEY"]
+        model=st.secrets.deepseek.get("model", "deepseek-chat"),
+        api_key=st.secrets.deepseek.api_key
     )
 
-# Configure Gemini LM if API key available
-if "GEMINI_API_KEY" in os.environ:
+# Configure Gemini LM if API key available in secrets
+if "gemini" in st.secrets:
     lm_configs['gemini'] = dspy.LM(
-        model="gemini/gemini-2.0-flash-exp",
-        api_key=os.environ["GEMINI_API_KEY"]
+        model=st.secrets.gemini.get("model", "gemini/gemini-2.0-flash-exp"),
+        api_key=st.secrets.gemini.api_key
     )
 
-# Configure GitHub LM if credentials available
-if "GITHUB_TOKEN" in os.environ:
+# Configure GitHub LM if credentials available in secrets
+if "github" in st.secrets:
     lm_configs['github'] = dspy.LM(
-        model="openai/gpt-4o-mini",
-        api_base="https://models.inference.ai.azure.com", 
-        api_key=os.environ["GITHUB_TOKEN"]
+        model=st.secrets.github.get("model", "openai/gpt-4o-mini"),
+        api_base=st.secrets.github.get("api_base", "https://models.inference.ai.azure.com"),
+        api_key=st.secrets.github.api_key
     )
 
-# Configure Ollama LM if model is specified
-if "OLLAMA_MODEL" in os.environ:
+# Configure Ollama LM if configured in secrets
+if "ollama" in st.secrets:
     lm_configs['ollama'] = dspy.LM(
-        model=f"ollama_chat/{os.environ['OLLAMA_MODEL']}",
-        api_base="http://localhost:11434",
-        api_key=""
+        model=f"ollama_chat/{st.secrets.ollama.get('model', 'llama3')}",
+        api_base=st.secrets.ollama.get("api_base", "http://localhost:11434"),
+        api_key=st.secrets.ollama.get("api_key", "")
     )
 
 # Select default LM based on availability
@@ -259,12 +256,12 @@ def generate_content_revision(text: str, context: Optional[str] = None, guidelin
         print(f"Error in content revision: {str(e)}")
         return text  # Return original text on error
 
-def generate_feedback_revision(text: str, feedback_list: list[str]) -> str:
-    """Generate revised content based on feedback items"""
+def generate_feedback_revision(text: str, feedback_list: list[str]) -> tuple[str, str]:
+    """Generate revised content based on feedback items, returns both original and revised text"""
     try:
         # Ensure LM is loaded
         if not dspy.settings.lm:
-            dspy.settings.configure(lm=default_lm)  # Use the configured default LM
+            dspy.settings.configure(lm=default_lm)
         
         # Combine feedback into guidelines
         guidelines = "\n".join([f"- {item}" for item in feedback_list])
@@ -274,10 +271,10 @@ def generate_feedback_revision(text: str, feedback_list: list[str]) -> str:
             context="Revise based on feedback",
             guidelines=guidelines
         )
-        return result.revised_content
+        return text, result.revised_content
     except Exception as e:
         print(f"Error in feedback revision: {str(e)}")
-        return text
+        return text, text
 
 def get_feedback_item(reference_text: Optional[str] = None) -> FeedbackItem:
     """Generate a feedback item using LLM"""
@@ -548,7 +545,7 @@ def ai_assistant_column():
         return
     
     st.title("AI Assistant")
-    tab1, tab2 = st.tabs(["All Feedback", "Custom Feedback"])
+    tab1, tab2, tab3 = st.tabs(["All Feedback", "Custom Feedback", "Flowchart"])
     
     with tab1:
         # Display existing feedback items
@@ -599,6 +596,7 @@ def ai_assistant_column():
         
         # Apply feedback button
         st.markdown("<hr class='custom-separator'>", unsafe_allow_html=True)
+        
         if st.button(
             "✨ Apply Selected Feedback", 
             key="apply_feedback", 
@@ -609,40 +607,21 @@ def ai_assistant_column():
             try:
                 if current_workspace.doc_content and currently_selected_feedback:
                     # Generate revised content
-                    revised_text = generate_feedback_revision(
+                    original_text, revised_text = generate_feedback_revision(
                         current_workspace.doc_content,
                         currently_selected_feedback
                     )
                     
-                    # Update document content
-                    current_workspace.doc_content = revised_text
+                    # Store texts in session state
+                    st.session_state.original_text = original_text
+                    st.session_state.revised_text = revised_text
                     
-                    # Force Quill editor to update by changing its key
-                    if 'quill_editor_key' not in st.session_state:
-                        st.session_state.quill_editor_key = 0
-                    st.session_state.quill_editor_key += 1
-                    
-                    # Get indices of selected feedback items to remove
-                    indices_to_remove = [
-                        idx for idx, item in enumerate(current_workspace.feedback_items)
-                        if st.session_state.get(f"feedback_checkbox_{idx}", False)
-                    ]
-                    
-                    # Remove the applied feedback items (in reverse order to maintain correct indices)
-                    for idx in sorted(indices_to_remove, reverse=True):
-                        current_workspace.feedback_items.pop(idx)
-                        if f"feedback_checkbox_{idx}" in st.session_state:
-                            del st.session_state[f"feedback_checkbox_{idx}"]
-                    
-                    # Save state and update UI
-                    save_state_to_disk()
-                    st.success("✅ Feedback applied successfully!")
-                    st.rerun()
-                else:
-                    st.warning("Please select feedback to apply and ensure document has content.")
+                    # Show success message in current tab
+                    st.success("✨ Changes ready for review! Switch to the 'Review Change' tab (🔄 icon) to compare and apply changes.")
+
             except Exception as e:
                 st.error(f"Error applying feedback: {str(e)}")
-    
+
     with tab2:
         # Clipboard paste functionality
         if st.button(
@@ -712,6 +691,32 @@ def ai_assistant_column():
                 current_workspace.feedback_items.append(new_item)
                 st.session_state.referenced_text = ""
                 st.rerun(scope="fragment")
+
+    with tab3:
+        if current_workspace.document_summaries:
+            # Generate Mermaid flowchart code
+            mermaid_code = """
+graph TD
+    classDef default fill:#2D2D2D,stroke:#666666,color:#000000
+"""
+            # Add nodes
+            for idx, summary in enumerate(current_workspace.document_summaries):
+                # Escape special characters and limit title length
+                safe_title = summary.title.replace('"', "'").replace(':', ' -')[:30]
+                mermaid_code += f'    node{idx}["{safe_title}"]\n'
+            
+            # Add connections
+            for idx in range(len(current_workspace.document_summaries) - 1):
+                mermaid_code += f'    node{idx} --> node{idx + 1}\n'
+            
+            try:
+                stmd.st_mermaid(mermaid_code, height=600)
+                st.caption("Document flow based on generated summaries")
+            except Exception as e:
+                st.error(f"Error rendering flowchart: {str(e)}")
+                st.code(mermaid_code, language="mermaid")
+        else:
+            st.info("No summaries available. Generate summaries in the Document view first.")
 
 # --- Session State ---
 # Remove these legacy entries
@@ -847,9 +852,6 @@ with st.sidebar:
                 st.session_state.quill_editor_key = st.session_state.get('quill_editor_key', 0) + 1
                 st.rerun()
 
-        # Add separator
-        st.markdown("<hr class='custom-separator'>", unsafe_allow_html=True)
-
         # Download Document button
         if current_workspace.doc_content:
             doc_name = current_workspace.name.replace(" ", "_").lower() if current_workspace.name else "document"
@@ -863,11 +865,6 @@ with st.sidebar:
             
         # Add separator
         st.markdown("<hr class='custom-separator'>", unsafe_allow_html=True)
-            
-        if st.button("📊 Open Analytics Dashboard", 
-            help="Access detailed usage analytics",
-            use_container_width=True):
-            st.query_params["analytics"] = "on"
 
 # Update the styles
 st.markdown("""
@@ -978,8 +975,8 @@ else:
         with doc_col:
             st.title("Document Editor")
             
-            # Create tabs for Document and Summary views
-            doc_tab, summary_tab = st.tabs(["📄 Document", "📑 Summary"])
+            # Create tabs for Document, Summary, and Review Change views
+            doc_tab, summary_tab, review_tab = st.tabs(["📄 Document", "📑 Summary", "🔄 Review Change"])
             
             with doc_tab:
                 # Initialize content with empty string if None
@@ -1133,6 +1130,74 @@ else:
                                     if paragraph.strip():
                                         st.markdown(paragraph)
 
+            with review_tab:
+                if st.session_state.get('original_text') and st.session_state.get('revised_text'):
+                    st.info("Compare the original and revised versions below. Accept or reject the changes when ready.")
+                    
+                    # Create side-by-side columns for the editors
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("**Original Version:**")
+                        original_content = st_quill(
+                            value=st.session_state.original_text,
+                            key="original_quill",
+                        )
+                    
+                    with col2:
+                        st.markdown("**Revised Version:**")
+                        revised_content = st_quill(
+                            value=st.session_state.revised_text,
+                            key="revised_quill",
+                        )
+                    
+                    # Add some vertical space before the buttons
+                    st.write("")
+                    
+                    # Confirmation buttons
+                    button_col1, button_col2 = st.columns(2)
+                    with button_col1:
+                        if st.button("✅ Accept Changes", type="primary", use_container_width=True):
+                            # Update document content
+                            current_workspace.doc_content = st.session_state.revised_text
+                            
+                            # Force Quill editor to update
+                            if 'quill_editor_key' not in st.session_state:
+                                st.session_state.quill_editor_key = 0
+                            st.session_state.quill_editor_key += 1
+                            
+                            # Get indices of selected feedback items to remove
+                            indices_to_remove = [
+                                idx for idx, item in enumerate(current_workspace.feedback_items)
+                                if st.session_state.get(f"feedback_checkbox_{idx}", False)
+                            ]
+                            
+                            # Remove the applied feedback items
+                            for idx in sorted(indices_to_remove, reverse=True):
+                                current_workspace.feedback_items.pop(idx)
+                                if f"feedback_checkbox_{idx}" in st.session_state:
+                                    del st.session_state[f"feedback_checkbox_{idx}"]
+                            
+                            # Reset state
+                            del st.session_state.original_text
+                            del st.session_state.revised_text
+                            
+                            # Save state and update UI
+                            save_state_to_disk()
+                            st.success("✅ Changes applied successfully!")
+                            st.rerun()
+                    
+                    with button_col2:
+                        if st.button("❌ Reject Changes", type="secondary", use_container_width=True):
+                            # Reset state
+                            del st.session_state.original_text
+                            del st.session_state.revised_text
+                            st.rerun()
+                else:
+                    st.info("No changes to review. Apply feedback to see the comparison here.")
+                    if st.button("🔄 Show Change", type="primary", use_container_width=True):
+                        st.rerun()
+
         # AI Assistant Column (only shown if toggled on)
         if st.session_state.show_ai_assistant:
             with ai_col:
@@ -1156,9 +1221,21 @@ def display_workspace_stats(workspace: Workspace):
     date_str = last_edit.strftime("%b %d, %Y")  # Format: Month DD, YYYY
     
     st.sidebar.markdown(f"*Last edited: {time_str} on {date_str}*")
+    
+    # Add separator and analytics button at the bottom
+    st.sidebar.markdown("<hr class='custom-separator'>", unsafe_allow_html=True)
+    
+    if st.sidebar.button("📊 Open Analytics Dashboard", 
+        help="Admin use only - Analytics dashboard for monitoring application usage",
+        use_container_width=True,
+        disabled=True):  # Disable the button
+        st.query_params["analytics"] = "on"
 
 # Add the display call in the main app
 if current_workspace:
     display_workspace_stats(current_workspace)
 
-streamlit_analytics.stop_tracking(unsafe_password=os.environ.get("ANALYTICS_PASSWORD"), save_to_json=".streamlit/analytics.json")
+streamlit_analytics.stop_tracking(
+    unsafe_password=st.secrets.get("analytics_password", ""),  # Get from secrets or empty string as fallback
+    save_to_json=".streamlit/analytics.json"
+)

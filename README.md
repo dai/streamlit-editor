@@ -38,23 +38,36 @@ source venv/bin/activate  # Unix/MacOS
 pip install -r requirements.txt
 ```
 
-3. Configure environment:
-```
-cp .env.example .env  # Implement environment template
-```
-
-4. Add your API key (either one required):
-```
-OPENROUTER_API_KEY=your_openrouter_api_key
-OPENROUTER_MODEL=your_openrouter_model
-OPENAI_API_KEY=your_openai_api_key
-DEEPSEEK_API_KEY=your_deepseek_api_key
-GEMINI_API_KEY=your_gemini_api_key
-GITHUB_TOKEN=your_github_token
-OLLAMA_MODEL=your_ollama_model
+3. Configure Streamlit secrets:
+```bash
+mkdir -p .streamlit
+touch .streamlit/secrets.toml
 ```
 
-5. (If you want to use Ollama) Setup Ollama:
+Add the following to `.streamlit/secrets.toml`:
+```toml
+# API Keys (at least one required)
+[openrouter]
+OPENROUTER_API_KEY = "your_openrouter_api_key"
+OPENROUTER_MODEL = "your_openrouter_model"
+
+[openai]
+OPENAI_API_KEY = "your_openai_api_key"
+
+[deepseek]
+DEEPSEEK_API_KEY = "your_deepseek_api_key"
+
+[gemini]
+GEMINI_API_KEY = "your_gemini_api_key"
+
+[github]
+GITHUB_TOKEN = "your_github_token"
+
+[ollama]
+OLLAMA_MODEL = "your_ollama_model"
+```
+
+4. (If you want to use Ollama) Setup Ollama:
 
 First, install [Ollama](https://ollama.com/download).
 
@@ -63,7 +76,7 @@ Then start Ollama server with the specified model:
 ollama run your_ollama_model
 ```
 
-6. Launch application:
+5. Launch application:
 ```
 streamlit run streamlit_editor.py
 ```
@@ -88,10 +101,12 @@ And the app will be running on http://localhost:8501.
   - 🤖 DSPy-powered feedback suggestions (general or specific to reference text)
   - 📑 Automated section summarization
   - 🧩 LLM-driven content regeneration
+  - 📝 Review and compare AI-generated changes
 
 - **Quality Control**
   - 🔍 Semantic feedback tracking with source references
   - 📊 Real-time feedback dashboard
+  - ✅ Accept/reject AI suggestions with diff view
 
 ### 3. Finalization & Management
 - **Output Optimization**
@@ -109,11 +124,12 @@ And the app will be running on http://localhost:8501.
 
 ## 🔧 Technical Stack
 
-| Component       | Technology       | Purpose                    |
-|-----------------|------------------|----------------------------|
-| AI Framework    | DSPy             | LLM operations management |
-| Text Processing | LangChain        | Document chunking          |
-| UI Framework    | Streamlit        | Web interface              |
+| Component       | Technology        | Purpose                    |
+|----------------|-------------------|----------------------------|
+| AI Framework   | DSPy             | LLM operations management  |
+| Text Processing| LangChain        | Document chunking          |
+| UI Framework   | Streamlit        | Web interface              |
+| Visualization  | Streamlit Mermaid| Document flow diagrams     |
 
 ## 📄 License
 
