@@ -29,5 +29,12 @@
   },
   "forwardPorts": [
     8501
-  ]
+  ],
+  "tasks": {
+    "build": "pip install -r requirements.txt",
+    "test": "pytest"
+  },
+  "testDiscovery": {
+    "pattern": "test_*.py"
+  }
 }
