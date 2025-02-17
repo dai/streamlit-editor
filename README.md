@@ -1,32 +1,32 @@
-# LLM-Powered Document Editor: DSPy & LangChain Integration for Intelligent Writing (OpenRouter/OpenAI/Deepseek/Gemini/Github/Ollama)
+# LLM搭載ドキュメントエディタ: DSPy & LangChain統合によるインテリジェントライティング (OpenRouter/OpenAI/Deepseek/Gemini/Github/Ollama)
 
 [![X URL](https://img.shields.io/twitter/url/https/x.com/doc_editor_saas.svg?style=social&label=Follow%20%40doc_editor_saas)](https://x.com/doc_editor_saas)
 [![Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://doc-editor.streamlit.app)
 
-**An intelligent writing assistant with multi-LLM integration for enhanced content creation and editing.**
+**複数のLLM統合によるインテリジェントなコンテンツ作成と編集を実現するライティングアシスタント。**
 
-[![App Screen Recording](https://github.com/user-attachments/assets/9adbdbc6-2138-4d63-8e0e-83dd8cb03d7f)](https://github.com/user-attachments/assets/f37c4dd5-423c-4406-a08d-51f67942ac7b)
+[![アプリ画面録画](https://github.com/user-attachments/assets/9adbdbc6-2138-4d63-8e0e-83dd8cb03d7f)](https://github.com/user-attachments/assets/f37c4dd5-423c-4406-a08d-51f67942ac7b)
 
-Leverage DSPy's LLM orchestration and LangChain's document processing to create, refine, and manage content with unprecedented efficiency. Ideal for technical writers, content creators, and knowledge workers seeking intelligent document editing.
+DSPyのLLMオーケストレーションとLangChainのドキュメント処理を活用して、コンテンツの作成、改良、管理を前例のない効率で行います。技術ライター、コンテンツクリエーター、知識労働者に最適なインテリジェントドキュメント編集ツールです。
 
-## 📚 Table of Contents
-- [LLM-Powered Document Editor: DSPy \& LangChain Integration for Intelligent Writing (OpenRouter/OpenAI/Deepseek/Gemini/Github/Ollama)](#llm-powered-document-editor-dspy--langchain-integration-for-intelligent-writing-openrouteropenaideepseekgeminigithubollama)
-  - [📚 Table of Contents](#-table-of-contents)
-  - [🚀 Quick Start](#-quick-start)
-  - [✨ Intelligent Document Workflows](#-intelligent-document-workflows)
-    - [1. Content Creation Phase](#1-content-creation-phase)
-    - [2. AI Collaboration Phase](#2-ai-collaboration-phase)
-    - [3. Finalization \& Management](#3-finalization--management)
-  - [⚙️ System Architecture](#️-system-architecture)
-  - [🔧 Technical Stack](#-technical-stack)
-  - [📄 License](#-license)
+## 📚 目次
+- [LLM搭載ドキュメントエディタ: DSPy \& LangChain統合によるインテリジェントライティング (OpenRouter/OpenAI/Deepseek/Gemini/Github/Ollama)](#llm搭載ドキュメントエディタ-dspy--langchain統合によるインテリジェントライティング-openrouteropenaideepseekgeminigithubollama)
+  - [📚 目次](#-目次)
+  - [🚀 クイックスタート](#-クイックスタート)
+  - [✨ インテリジェントドキュメントワークフロー](#-インテリジェントドキュメントワークフロー)
+    - [1. コンテンツ作成フェーズ](#1-コンテンツ作成フェーズ)
+    - [2. AIコラボレーションフェーズ](#2-aiコラボレーションフェーズ)
+    - [3. 最終化と管理](#3-最終化と管理)
+  - [⚙️ システムアーキテクチャ](#️-システムアーキテクチャ)
+  - [🔧 技術スタック](#-技術スタック)
+  - [📄 ライセンス](#-ライセンス)
 
-## 🚀 Quick Start
+## 🚀 クイックスタート
 
-Try the live demo immediately:
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://doc-editor.streamlit.app)
+ライブデモをすぐに試してみてください:
+[![Streamlitで開く](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://doc-editor.streamlit.app)
 
-1. Clone repository:
+1. リポジトリをクローン:
 ```
 git clone https://github.com/clchinkc/streamlit-editor.git
 python -m venv venv
@@ -34,18 +34,18 @@ source venv/bin/activate  # Unix/MacOS
 # .\venv\Scripts\activate  # Windows
 ```
 
-2. Install dependencies:
+2. 依存関係をインストール:
 ```
 pip install -r requirements.txt
 ```
 
-3. Configure Streamlit secrets:
+3. Streamlitのシークレットを設定:
 ```bash
 mkdir -p .streamlit
 touch .streamlit/secrets.toml
 ```
 
-Add the following to `.streamlit/secrets.toml`:
+以下を `.streamlit/secrets.toml` に追加:
 ```toml
 # API Keys (at least one required)
 [openrouter]
@@ -68,70 +68,70 @@ GITHUB_TOKEN = "your_github_token"
 OLLAMA_MODEL = "your_ollama_model"
 ```
 
-4. (If you want to use Ollama) Setup Ollama:
+4. (Ollamaを使用する場合) Ollamaをセットアップ:
 
-First, install [Ollama](https://ollama.com/download).
+まず、[Ollama](https://ollama.com/download) をインストールします。
 
-Then start Ollama server with the specified model:
+次に、指定されたモデルでOllamaサーバーを起動します:
 ```
 ollama run your_ollama_model
 ```
 
-5. Launch application:
+5. アプリケーションを起動:
 ```
 streamlit run streamlit_editor.py
 ```
-And the app will be running on http://localhost:8501.
+アプリは http://localhost:8501 で実行されます。
 
-## ✨ Intelligent Document Workflows
+## ✨ インテリジェントドキュメントワークフロー
 
-**Combined Features & User Processes**
+**統合された機能とユーザープロセス**
 
-### 1. Content Creation Phase
-- **Multi-format Editing Suite**
-  - ✍️ Dual-mode editor (Editor + Markdown Preview)
-  - 📥 File ingestion: Drag-and-drop `.md`/`.txt` support
-  - 📤 Export flexibility: Download markdown or clipboard copy
+### 1. コンテンツ作成フェーズ
+- **マルチフォーマット編集スイート**
+  - ✍️ デュアルモードエディタ (エディタ + マークダウンプレビュー)
+  - 📥 ファイル取り込み: ドラッグアンドドロップで `.md`/`.txt` サポート
+  - 📤 エクスポートの柔軟性: マークダウンのダウンロードまたはクリップボードコピー
   
-- **Structural Tools**
-  - 🗂️ LangChain-powered document chunking
-  - 📚 Section-level editing
+- **構造ツール**
+  - 🗂️ LangChainによるドキュメントチャンク化
+  - 📚 セクションレベルの編集
 
-### 2. AI Collaboration Phase
-- **Context-Aware Assistance**
-  - 🤖 DSPy-powered feedback suggestions (general or specific to reference text)
-  - 📑 Automated section summarization
-  - 🧩 LLM-driven content regeneration
-  - 📝 Review and compare AI-generated changes
+### 2. AIコラボレーションフェーズ
+- **コンテキスト対応アシスタンス**
+  - 🤖 DSPyによるフィードバック提案 (一般的または参照テキストに特化)
+  - 📑 自動セクション要約
+  - 🧩 LLM駆動のコンテンツ再生成
+  - 📝 AI生成の変更をレビューおよび比較
 
-- **Quality Control**
-  - 🔍 Semantic feedback tracking with source references
-  - 📊 Real-time feedback dashboard
-  - ✅ Accept/reject AI suggestions with diff view
+- **品質管理**
+  - 🔍 ソース参照付きのセマンティックフィードバック追跡
+  - 📊 リアルタイムフィードバックダッシュボード
+  - ✅ 差分ビューでAI提案を受け入れ/拒否
 
-### 3. Finalization & Management
-- **Output Optimization**
-  - 🧮 Batch operation processing for bulk edits
+### 3. 最終化と管理
+- **出力最適化**
+  - 🧮 バッチ操作処理による一括編集
 
-- **Advanced Orchestration**
-  - 🚦 DSPy-managed suggestion pipeline
-  - 📜 Version history tracking
-  - 🌐 Multi-modal previews (raw + rendered views)
-  - 📄 Pagination for summaries
+- **高度なオーケストレーション**
+  - 🚦 DSPy管理の提案パイプライン
+  - 📜 バージョン履歴の追跡
+  - 🌐 マルチモーダルプレビュー (生データ + レンダリングビュー)
+  - 📄 要約のページネーション
 
-## ⚙️ System Architecture
+## ⚙️ システムアーキテクチャ
 
-[![](https://mermaid.ink/img/pako:eNqdVV1r2zAU_SvCpWODmGUrpKkfBknsjMEKZW4oDL8o9o0tYusaSW4a2v73XVv-iLvuYdGTPu45urrnSHp2YkzA8Zxdjoc448qwez-SjNrlJbvlQrIVFiVKkEbb-Y0G9TFydtzbcbeiAXtQwoCKnE82IEiEwSEEaMhCo4AXOfU2P_rAB1R7XfIY-tiEG77lGoYlQnIDPcQP74599FbV-dVT7E5hDFrjkMVPLtNVRgF9eC7kfphmYUnpnOa9Bki2PN73gBiLoj53v8LCozZQ9IiwKgquhoR2IgeX56ZbYIFMhRyyD55KVGY4LR5kjjxp59ktJlVuo3sJViglxEagPCk_c91vLx0LVwoPrhJpZqwS-nOtgI6cl1aKU1lGUM0fgS0qg01PM4M1qK_9G5XGUPIKsHvaNgXV7NXo8GEo8BsZRui4Mrb-tCc8GfYoeE3Rlm2QegQqeCpi9h0kKLJEs2cnzFjAEaqSCbJNmXSQN6frlBplh-WRfIfqXcQ_6nGUMfsFO8Jk8Fft38c0dgGrvbWA7iphhyc-CM2R_JuygzAZOxBdfWFdXUIsdlSVGHNUrUM0hUInN-2Rexc30yC4mU60UbgH7-Lq6qrtuweRmMz7Wj5NGgrvYtq0U6YheUs2v14FwfJMskZVy7NeL2erL2fyDL7qyBbT68WZZL1xLJfvL6a-fyZXZ6g2rWkwm6_OpGqfhVbC-Xp5Mz-TqXk0LE8wC2br_ymUM3EKUAUXCX0TzzVr5JgMCnqoPOomXO0jJ5KvFMfpKQnpIjieURVMHIVVmjlk9VzTqGouoS94qnjRz5Zc_kYcxtD49tb-Ss3n9PoHw9cvYQ?type=png)](https://mermaid.live/edit#pako:eNqdVV1r2zAU_SvCpWODmGUrpKkfBknsjMEKZW4oDL8o9o0tYusaSW4a2v73XVv-iLvuYdGTPu45urrnSHp2YkzA8Zxdjoc448qwez-SjNrlJbvlQrIVFiVKkEbb-Y0G9TFydtzbcbeiAXtQwoCKnE82IEiEwSEEaMhCo4AXOfU2P_rAB1R7XfIY-tiEG77lGoYlQnIDPcQP74599FbV-dVT7E5hDFrjkMVPLtNVRgF9eC7kfphmYUnpnOa9Bki2PN73gBiLoj53v8LCozZQ9IiwKgquhoR2IgeX56ZbYIFMhRyyD55KVGY4LR5kjjxp59ktJlVuo3sJViglxEagPCk_c91vLx0LVwoPrhJpZqwS-nOtgI6cl1aKU1lGUM0fgS0qg01PM4M1qK_9G5XGUPIKsHvaNgXV7NXo8GEo8BsZRui4Mrb-tCc8GfYoeE3Rlm2QegQqeCpi9h0kKLJEs2cnzFjAEaqSCbJNmXSQN6frlBplh-WRfIfqXcQ_6nGUMfsFO8Jk8Fft38c0dgGrvbWA7iphhyc-CM2R_JuygzAZOxBdfWFdXUIsdlSVGHNUrUM0hUInN-2Rexc30yC4mU60UbgH7-Lq6qrtuweRmMz7Wj5NGgrvYtq0U6YheUs2v14FwfJMskZVy7NeL2erL2fyDL7qyBbT68WZZL1xLJfvL6a-fyZXZ6g2rWkwm6_OpGqfhVbC-Xp5Mz-TqXk0LE8wC2br_ymUM3EKUAUXCX0TzzVr5JgMCnqoPOomXO0jJ5KvFMfpKQnpIjieURVMHIVVmjlk9VzTqGouoS94qnjRz5Zc_kYcxtD49tb-Ss3n9PoHw9cvYQ)
+[![](https://mermaid.ink/img/pako:eNqdVV1r2zAU_SvCpWODmGUrpKkfBknsjMEKZW4oDL8o9o0tYusaSW4a2v73XVv-iLvuYdGTPu45urrnSHp2YkzA8Zxdjoc448qwez-SjNrlJbvlQrIVFiVKkEbb-Y0G9TFydtzbcbeiAXtQwoCKnE82IEiEwSEEaMhCo4AXOfU2P_rAB1R7XfIY-tiEG77lGoYlQnIDPcQP74599FbV-dVT7E5hDFrjkMVPLtNVRgF9eC7kfphmYUnpnOa9Bki2PN73gBiLoj53v8LCozZQ9IiwKgquhoR2IgeX56ZbYIFMhRyyD55KVGY4LR5kjjxp59ktJlVuo3sJViglxEagPCk_c91vLx0LVwoPrhJpZqwS-nOtgI6cl1aKU1lGUM0fgS0qg01PM4M1qK_9G5XGUPIKsHvaNgXV7NXo8GEo8BsZRui4Mrb-tCc8GfYoeE3Rlm2QegQqeCpi9h0kKLJEs2cnzFjAEaqSCbJNmXSQN6frlBplh-WRfIfqXcQ_6nGUMfsFO8Jk8Fft38c0dgGrvbWA7iphhyc-CM2R_JuygzAZOxBdfWFdXUIsdlSVGHNUrUM0hUInN-2Rexc30yC4mU60UbgH7-Lq6qrtuweRmMz7Wj5NGgrvYtq0U6YheUs2v14FwfJMskZVy7NeL2erL2fyDL7qyBbT68WZZL1xLJfvL6a-fyZXZ6g2rWkwm6_OpGqfhVbC-Xp5Mz-TqXk0LE8wC2br_ymUM3EKUAUXCX0TzzVr5JgMCnqoPOomXO0jJ5KvFMfpKQnpIjieURVMHIVVmjlk9VzTqGouoS94qnjRz5Zc_kYcxtD49tb-Ss3n9PoHw9cvYQ)
 
-## 🔧 Technical Stack
+## 🔧 技術スタック
 
-| Component       | Technology        | Purpose                    |
+| コンポーネント       | 技術        | 目的                    |
 |----------------|-------------------|----------------------------|
-| AI Framework   | DSPy             | LLM operations management  |
-| Text Processing| LangChain        | Document chunking          |
-| UI Framework   | Streamlit        | Web interface              |
-| Visualization  | Streamlit Mermaid| Document flow diagrams     |
+| AIフレームワーク   | DSPy             | LLM操作管理  |
+| テキスト処理| LangChain        | ドキュメントチャンク化          |
+| UIフレームワーク   | Streamlit        | Webインターフェース              |
+| ビジュアライゼーション  | Streamlit Mermaid| ドキュメントフローダイアグラム     |
 
-## 📄 License
+## 📄 ライセンス
 
-MIT Licensed - See [LICENSE](LICENSE) for details.
+MITライセンス - 詳細は [LICENSE](LICENSE) を参照してください。
